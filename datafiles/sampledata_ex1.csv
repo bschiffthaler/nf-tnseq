@@ -1,0 +1,13 @@
+Sample,Name,Pool,TechnicalReplicate,BiologicalReplicate,Condition,BasespaceId
+,C58wt-1-1,1,1,1,WT,ds.af4c930e27344491996a621198ad51c6
+,C58wt-2-1,1,1,2,WT,ds.e8a8fcb8f80648ad81f60fa0fe04daed
+,C58wt-3-1,1,1,3,WT,ds.27c3fa48949c4c3586cd7c8a04e7adef
+,D13-1-1,1,1,1,D13,ds.1e37fda0f5e24ae2ac7728f237fbe7da
+,D13-2-1,1,1,2,D13,ds.1b640ab3ccdf49908c3f6a33c4074ad4
+,D13-3-1,1,1,3,D13,ds.5c4e3f5a4daf400eb3523d34b3930267
+,C58wt-1-2,2,2,1,WT,ds.c4f55bc892d44fa88f9280d10cb4560b
+,C58wt-2-2,2,2,2,WT,ds.c84b3d01708d44fb881d2152635553e9
+,C58wt-3-2,2,2,3,WT,ds.27788b256e204ca0a99d992bb3d0d38a
+,D13-1-2,2,2,1,D13,ds.ee78ce9188f64cc9a314730baef737a3
+,D13-2-2,2,2,2,D13,ds.4eef43cbd3d74285a1ceedeb11e6e33e
+,D13-3-2,2,2,3,D13,ds.723d83e4413f47bfb862991e4e499539

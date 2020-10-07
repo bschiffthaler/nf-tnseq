@@ -1,0 +1,15 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+**.html
+scripts/*.html
+.nextflow*
+datafiles/genes_of_interest.txt
+datafiles/sampledata.csv
+analysis/
+genome/
+plasmid/
+singularity/
+work/
