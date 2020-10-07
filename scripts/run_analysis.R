@@ -19,6 +19,12 @@ suppressPackageStartupMessages({
   library(corrplot)
 })
 
+args <- commandArgs(trailingOnly = TRUE)
+
+if (length(args) > 0) {
+  set_here(args[1])
+}
+
 my_theme <-theme_bw() + 
   theme(text = element_text(size = 18))
 
@@ -122,7 +128,6 @@ ggplotly(pl)
 #' 
 #' See https://dx.doi.org/10.1186%2Fs12859-017-1745-2 for details.
 #' 
-if (length(unique(sample_info$Condition)) > 1) {
 tnseq <- TnseqDiff(countData = sr_counts$tr_counts,
                    geneID = ta_df$GeneID,
                    location = ta_df$Start,
@@ -197,13 +202,21 @@ ggsave(here("analysis", "04-statistical-analysis/", "plots", "volcano_plot.pdf")
        width = 12, height = 10, plot = pl)
 suppressWarnings(ggplotly(pl))
 
+get_goidx <- function(rnames, gois) {
+  if (length(gois) > 1) {
+    gois_idx <- sapply(str_to_lower(rnames), str_detect, str_to_lower(gois))
+    if (any(colSums(gois_idx) > 1)) {
+      warning("Ambiguous gene names in gene of interest! Please provide unique names")
+    }
+    return (apply(gois_idx, 1, which))
+  } else {
+    return (which(str_detect(str_to_lower(rnames), str_to_lower(gois))))
+  }
+}
+
 #' ### Volcano plot with GsOI highlighted
 if (length(gois) > 0) {
-  gois_idx <- sapply(str_to_lower(tnseq$resTable$ID), str_detect, str_to_lower(gois))
-  if (any(colSums(gois_idx) > 1)) {
-    warning("Ambiguous gene names in gene of interest! Please provide unique names")
-  }
-  gois_idx <- apply(gois_idx, 1, which)
+  gois_idx <- get_goidx(tnseq$resTable$ID, gois)
   as_tibble(tnseq$resTable) -> j
   j$GeneOfInterest <- FALSE
   j$GeneOfInterest[gois_idx] <- TRUE
@@ -255,14 +268,11 @@ dev.off()
 
 #' ### Count data heatmap for genes of interest
 if (length(gois) > 0) {
-  gois_idx <- sapply(str_to_lower(rownames(voom_data)), str_detect, str_to_lower(gois))
-  if (any(colSums(gois_idx) > 1)) {
-    warning("Ambiguous gene names in gene of interest! Please provide unique names")
-  }
-  gois_idx <- apply(gois_idx, 1, which)
+  gois_idx <- get_goidx(rownames(voom_data), str_to_lower(gois))
   pdf(here("analysis", "04-statistical-analysis/", "plots", "count_heatmap_gois.pdf"),
       width = 12, height = 10)
-  pheatmap(voom_data[gois_idx, ], annotation_col = ann_col)
+  pheatmap(voom_data[gois_idx, ,drop=FALSE], annotation_col = ann_col,
+           cluster_rows = ifelse(length(gois) > 1, TRUE, FALSE))
   dev.off()
 }
 
@@ -282,11 +292,7 @@ names(dna) <- sapply(str_split(names(dna), ' '), '[[', 1)
 sinfo <- Seqinfo(names(dna), seqlengths = Biostrings::width(dna))
 
 if (length(gois) > 0) {
-  gois_idx <- sapply(str_to_lower(gff$ID), str_detect, str_to_lower(gois))
-  if (any(colSums(gois_idx) > 1)) {
-    warning("Ambiguous gene names in gene of interest! Please provide unique names")
-  }
-  gois_idx <- apply(gois_idx, 1, which)
+  gois_idx <- get_goidx(str_to_lower(gff$ID), str_to_lower(gois))
   for (f in gois_idx) {
     r <- gff[f]
     chr <- chr <- as.character(unique(seqnames(r)))

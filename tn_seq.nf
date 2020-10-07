@@ -8,7 +8,8 @@
 *****************/
 
 // FASTA genome sequence
-params.refseq = ["NZ_AP014524.1", "NZ_AP014525.1"]
+params.refseq = "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/006/745/GCF_000006745.1_ASM674v1/GCF_000006745.1_ASM674v1_genomic.fna.gz"
+params.gff = "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/006/745/GCF_000006745.1_ASM674v1/GCF_000006745.1_ASM674v1_genomic.gff.gz"
 
 // FASTA sequence of the TA plasmid. Used to check for contamination of plasmid
 // sequence
@@ -34,7 +35,7 @@ params.duk_cpus = 4
 **************/
 
 
-process verify_sampleinfo {
+process verify_sampleinfo_csv {
   input:
   path sample_file from "$baseDir/datafiles/sampledata.csv"
   path rawdata from "$baseDir/rawdata/"
@@ -78,7 +79,7 @@ for (line in data) {
 }
 sampleinfo_ch = Channel.fromList(sample_data)
 
-process get_samples {
+process get_samples_from_basespace {
   input:
   val sampledata from sampleinfo_ch
   val check_samples from verify_ch
@@ -105,12 +106,12 @@ process get_samples {
   """
 }
 
-process genome_download {
+process download_genome {
   cpus 1
   memory params.min_memory
 
   input:
-  val glist from params.refseq.size > 1 ? params.refseq.join(',') : params.refseq[0]
+  val glist from params.refseq
 
   output:
   path "genome.fa" into genome_ch
@@ -119,16 +120,16 @@ process genome_download {
 
   """
   #!/bin/sh
-  curl 'https://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?db=nuccore&report=fasta&id=${glist}' > genome.fa
+  curl ${glist} | gzip -d -c > genome.fa
   """
 }
 
-process annotation_download {
+process download_annotation {
   cpus 1
   memory params.min_memory
 
   input:
-  val glist from params.refseq.size > 1 ? params.refseq.join(',') : params.refseq[0]
+  val glist from params.gff
 
   output:
   path "genome.gff3" into gff_ch
@@ -137,11 +138,11 @@ process annotation_download {
 
   """
   #!/bin/sh
-  curl 'https://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?db=nuccore&report=gff3&id=${glist}' > genome.gff3
+  curl ${glist} | gzip -d -c > genome.gff3
   """
 }
 
-process plasmid_download {
+process download_plasmid {
   cpus 1
   memory params.min_memory
 
@@ -161,7 +162,7 @@ process plasmid_download {
 
 
 // Module to create a genome index. Uses BBMap
-process genome_index {
+process index_genome {
   cpus params.map_cpus
   memory params.max_memory
 
@@ -180,7 +181,7 @@ process genome_index {
 }
 
 // First QC using FastQC on raw data
-process fastqc1 {
+process run_fastqc_raw {
   cpus 1
   memory params.min_memory
 
@@ -200,7 +201,7 @@ process fastqc1 {
 }
 
 // Trim common adapter sequences and very bad quality bases using trim_galore
-process trim_galore {
+process run_trim_galore {
   cpus params.trim_cpus
   memory params.min_memory
 
@@ -223,7 +224,7 @@ process trim_galore {
 }
 
 // Second QC (post trimming) using FastQC on raw data
-process fastqc2 {
+process run_fastqc_trimmed {
   cpus 1
   memory params.min_memory
 
@@ -243,7 +244,7 @@ process fastqc2 {
 }
 
 // Detect and remove plasmid sequences (failed selection) using BBDuk 
-process bbduk {
+process run_bbduk {
   cpus params.duk_cpus
   memory params.min_memory
 
@@ -270,7 +271,7 @@ process bbduk {
 }
 
 // Third QC (post decontamination) using FastQC on raw data
-process fastqc3 {
+process run_fastqc_decontaminated {
   cpus 1
   memory params.min_memory
 
@@ -290,7 +291,7 @@ process fastqc3 {
 }
 
 // Align using BBMap, very slow & accurate settings
-process bbmap {
+process run_bbmap_alignment {
   cpus params.map_cpus
   memory params.min_memory
 
@@ -316,7 +317,7 @@ process bbmap {
 }
 
 // Convert SAM to BAM, get more alignment quality stats from samtools
-process samtools {
+process run_samtools_sam_to_bam {
   cpus 1
   memory params.min_memory
 
@@ -325,7 +326,7 @@ process samtools {
 
   output:
   tuple path('*.bam'),path('*.bai') into samtools_ch_1
-  tuple path('*.bam'),path('*.bai') into samtools_ch_2
+  val true into samtools_ch_2
   path '*.flagstat'
   path '*.idxstats'
   path '*.stats'
@@ -345,7 +346,7 @@ process samtools {
 }
 
 // Final all-encompassing preprocessing QC report from MultiQC
-process multiqc {
+process run_multiqc {
   cache false
   cpus 1
   memory params.min_memory
@@ -355,6 +356,7 @@ process multiqc {
 
   output:
     path 'multiqc_report.html'
+    val true into multiqc_complete_ch
 
   publishDir 'analysis/'
 
@@ -363,7 +365,7 @@ process multiqc {
   """
 }
 
-process tasites {
+process detect_genome_ta_sites {
   cpus 1
   memory params.min_memory
 
@@ -381,7 +383,7 @@ process tasites {
   """
 }
 
-process filter_ta {
+process filter_ta_sites_outside_genes {
   cpus 1
   memory params.min_memory
 
@@ -400,7 +402,7 @@ process filter_ta {
   """
 }
 
-process overlap_ta {
+process overlap_ta_sites_and_genes {
   cpus 1
   memory params.min_memory
 
@@ -426,7 +428,7 @@ process generate_saf {
   path tsv from overlap_ch
 
   output:
-  path 'genes_tasites.saf'
+  val true into saf_ch
 
   publishDir 'genome/'
 
@@ -438,4 +440,26 @@ process generate_saf {
          print \$12 \"\\t\" \$1 \"\\t\" \$2 \"\\t\" \$3 \"\\t\" \$10}' | \
   grep -E -v '^\\.' > genes_tasites.saf
   """
+}
+
+process run_r_analysis {
+  stageInMode 'copy'
+
+  input:
+  val dummy3 from saf_ch
+  path script from "$baseDir/scripts/run_analysis.R"
+  val bd from "$projectDir"
+  val dummy from samtools_ch_2.collect()
+  val dummy2 from multiqc_complete_ch
+
+  output:
+  path 'run_analysis.html'
+
+  publishDir 'analysis/' 
+
+  """
+  #!/bin/bash
+
+  /usr/bin/Rscript -e 'rmarkdown::render("${script}")' ${bd}
+  """ 
 }
